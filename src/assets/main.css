@@ -43,3 +43,6 @@ body {
   padding: 0;
   font-weight: normal;
 }
+#app {
+  background: transparent !important;
+}
