@@ -36,7 +36,7 @@ body {
   min-height: 100vh;
 
   /* 半透明 + 毛玻璃 */
-  background: rgba(255, 255, 255, 0.78);
+  /* background: rgba(255, 255, 255, 0.78); */
   backdrop-filter: blur(8px);
 
   margin: 0;
