@@ -43,7 +43,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <RouterView />
+  <div id="app">
+    <div class="main-container">
+      <router-view />
+    </div>
+  </div>
 </template>
 
 <style scoped>
