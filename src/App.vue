@@ -1,71 +1,110 @@
 <script setup>
 import { RouterView } from 'vue-router'
 import { onMounted } from 'vue'
+import { useNavigation } from './apis/useNavigation'
 
-// ==============================================
-// 🐶 标题看门狗 (Title Watchdog)
-// 作用：监控 document.title 的变化，一旦发现不对劲，立刻强制改回环境变量
-// ==============================================
-const startTitleWatchdog = () => {
-  const envTitle = import.meta.env.VITE_SITE_TITLE
-  
-  // 如果没配置环境变量，就不启动看门狗，避免副作用
-  if (!envTitle || envTitle.trim() === '') return
-
-  // 1. 立即强制执行一次
-  document.title = envTitle
-
-  // 2. 使用 MutationObserver 监听 <title> 标签的变化
-  const target = document.querySelector('title')
-  if (target) {
-    const observer = new MutationObserver(() => {
-      if (document.title !== envTitle) {
-        console.log(`[Title Watchdog] 检测到标题被篡改为 "${document.title}"，正在强制恢复为 "${envTitle}"`)
-        document.title = envTitle
-      }
-    })
-    
-    observer.observe(target, { childList: true, subtree: true, characterData: true })
-  }
-  
-  // 3. 定时器兜底 (防止 MutationObserver 还没生效时的极短间隙)
-  setInterval(() => {
-    if (document.title !== envTitle && document.title === '') {
-      // 只有当标题变成空（显示域名）或者不正确时才修正
-      document.title = envTitle
-    }
-  }, 500)
-}
+const { categories, fetchCategories } = useNavigation()
 
 onMounted(() => {
-  startTitleWatchdog()
+  fetchCategories()
 })
 </script>
 
 <template>
-  <div id="app">
-    <!-- 背景层 -->
-    <div class="bg-layer"></div>
+  <div class="app-layout">
+    <aside class="glass-sidebar">
+      <div class="sidebar-header">
+        <h2 class="logo-text">猫猫导航</h2>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a 
+          v-for="cat in (categories.categories || categories)" 
+          :key="cat.id" 
+          :href="'#' + cat.id"
+          class="sidebar-item"
+        >
+          <span class="sidebar-icon">{{ cat.icon || '📂' }}</span>
+          <span class="sidebar-name">{{ cat.name }}</span>
+        </a>
+      </nav>
+    </aside>
 
-    <!-- 页面内容 -->
-    <div class="main-container">
-      <router-view />
-    </div>
+    <main class="main-body">
+      <RouterView />
+    </main>
   </div>
 </template>
+
 <style>
-/* 背景层，固定在页面底部，永远显示 */
-.bg-layer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
+/* 侧边栏专属样式 */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.glass-sidebar {
+  width: 240px;
   height: 100vh;
-  z-index: -999; /* 永远在最底层 */
-  background-image: url('https://img1.pixhost.to/images/11108/673696894_daisy-10003814_1920.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.logo-text {
+  font-size: 1.5rem;
+  color: #42b883;
+  margin: 0;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #42b883;
+  transform: translateX(5px);
+}
+
+.sidebar-icon {
+  margin-right: 12px;
+  font-size: 1.2rem;
+}
+
+/* 右侧内容偏移 */
+.main-body {
+  flex: 1;
+  margin-left: 240px; /* 避开固定侧边栏 */
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .glass-sidebar { display: none; }
+  .main-body { margin-left: 0; }
 }
 </style>
