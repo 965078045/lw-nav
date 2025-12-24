@@ -1,12 +1,11 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-// 确保这个路径是对的，如果你的文件在 src/apis 下
 import { useNavigation } from '../apis/useNavigation'
 
-// 1. 获取数据逻辑 (功能保留)
+// 1. 获取数据
 const { categories, fetchCategories, loading } = useNavigation()
 const searchQuery = ref('')
-const activeEngine = ref('bing') // 默认搜索引擎
+const activeEngine = ref('bing')
 
 // 2. 搜索引擎配置
 const engines = {
@@ -15,24 +14,35 @@ const engines = {
   baidu: { name: '百度', url: 'https://www.baidu.com/s?wd=' }
 }
 
-// 3. 混合搜索逻辑：既搜外网，也过滤站内
 const handleSearch = () => {
   if (!searchQuery.value) return
-  // 打开外部搜索
   window.open(engines[activeEngine.value].url + encodeURIComponent(searchQuery.value), '_blank')
 }
 
-// 4. 实时过滤站内卡片 (功能保留)
+// 3. 核心修复：这里改为识别 'sites' 字段
 const filteredCategories = computed(() => {
-  if (!searchQuery.value) return categories.value
-  // 深度过滤：只显示包含关键词的链接
-  return categories.value.map(cat => ({
-    ...cat,
-    links: cat.links.filter(link => 
-      link.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      (link.desc && link.desc.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    )
-  })).filter(cat => cat.links && cat.links.length > 0)
+  if (!categories.value) return []
+  // 如果原始数据结构是 { categories: [...] }，这里做个兼容
+  const list = Array.isArray(categories.value) ? categories.value : (categories.value.categories || [])
+
+  if (!searchQuery.value) return list
+
+  return list.map(cat => {
+    // 关键点：优先找 cat.sites，其次找 cat.links
+    const rawSites = cat.sites || cat.links || []
+    
+    const filteredSites = rawSites.filter(site => {
+      const name = site.name || ''
+      const desc = site.description || site.desc || '' // 兼容 description 和 desc
+      return name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+             desc.toLowerCase().includes(searchQuery.value.toLowerCase())
+    })
+
+    return {
+      ...cat,
+      sites: filteredSites // 统一赋值给 sites
+    }
+  }).filter(cat => cat.sites && cat.sites.length > 0)
 })
 
 onMounted(() => {
@@ -45,7 +55,7 @@ onMounted(() => {
     
     <header class="hero-section">
       <div class="logo-area">
-        <h1>我的导航站</h1>
+        <h1>猫猫导航</h1>
         <p>探索互联网的入口</p>
       </div>
 
@@ -65,7 +75,7 @@ onMounted(() => {
             v-model="searchQuery" 
             @keyup.enter="handleSearch"
             type="text" 
-            :placeholder="`在 ${engines[activeEngine].name} 中搜索，或查找站内书签...`"
+            :placeholder="`在 ${engines[activeEngine].name} 中搜索...`"
           />
           <button @click="handleSearch" class="search-btn">🔍</button>
         </div>
@@ -74,12 +84,12 @@ onMounted(() => {
 
     <div v-if="loading" class="loading">
       <div class="spinner"></div>
-      <p>正在同步 GitHub 数据...</p>
+      <p>正在加载数据...</p>
     </div>
 
     <main v-else class="content-grid">
       <div v-if="filteredCategories.length === 0" class="empty-state">
-        没有找到相关内容，按回车试试全网搜索？
+        没有找到相关内容
       </div>
 
       <section 
@@ -94,19 +104,23 @@ onMounted(() => {
         
         <div class="links-wrapper">
           <a 
-            v-for="link in cat.links" 
-            :key="link.url"
-            :href="link.url"
+            v-for="site in (cat.sites || cat.links || [])" 
+            :key="site.id || site.url"
+            :href="site.url"
             target="_blank"
             class="link-item"
-            :title="link.desc"
+            :title="site.description"
           >
             <img 
-              :src="`https://favicon.duckduckgo.com/v2/?url=${link.url}`" 
+              :src="site.icon || `https://favicon.duckduckgo.com/v2/?url=${site.url}`" 
               class="favicon"
-              @error="(e) => e.target.style.opacity = 0"
+              @error="(e) => e.target.style.opacity = 0" 
+              alt=""
             />
-            <span class="link-name">{{ link.name }}</span>
+            <div class="link-info">
+              <span class="link-name">{{ site.name }}</span>
+              <span v-if="site.description" class="link-desc">{{ site.description }}</span>
+            </div>
           </a>
         </div>
       </section>
@@ -120,35 +134,39 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* 布局容器 */
+/* 保持高级感样式 */
 .container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px;
 }
 
-/* 顶部区域 */
 .hero-section {
   text-align: center;
-  margin-bottom: 60px;
-  animation: fadeIn 1s ease;
+  margin-bottom: 50px;
+  animation: fadeIn 0.8s ease;
 }
 
 .logo-area h1 {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  font-size: 2.2rem;
+  margin-bottom: 5px;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
-/* 搜索框美化 */
+.logo-area p {
+  opacity: 0.8;
+  margin-top: 0;
+}
+
+/* 搜索框 */
 .search-box-wrapper {
-  max-width: 600px;
+  max-width: 500px;
   margin: 30px auto 0;
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(12px);
   padding: 15px;
-  border-radius: 20px;
-  border: var(--glass-border);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 }
 
@@ -156,28 +174,27 @@ onMounted(() => {
   display: flex;
   gap: 15px;
   margin-bottom: 10px;
-  padding-left: 10px;
+  padding-left: 5px;
   font-size: 0.9rem;
 }
 
 .engine-tabs span {
   cursor: pointer;
   opacity: 0.6;
-  transition: 0.3s;
   padding-bottom: 2px;
 }
 
 .engine-tabs span.active {
   opacity: 1;
   font-weight: bold;
-  border-bottom: 2px solid var(--accent-color);
+  border-bottom: 2px solid #42b883;
 }
 
 .input-group {
   display: flex;
   background: rgba(0,0,0,0.2);
   border-radius: 12px;
-  padding: 5px;
+  overflow: hidden;
 }
 
 .input-group input {
@@ -185,102 +202,108 @@ onMounted(() => {
   background: transparent;
   border: none;
   color: white;
-  padding: 12px;
-  font-size: 1rem;
+  padding: 12px 15px;
   outline: none;
 }
 
-.input-group input::placeholder { color: rgba(255,255,255,0.4); }
+.input-group input::placeholder { color: rgba(255,255,255,0.5); }
 
 .search-btn {
-  background: var(--accent-color);
+  background: #42b883;
   border: none;
-  border-radius: 8px;
   width: 50px;
   cursor: pointer;
   font-size: 1.2rem;
   transition: 0.2s;
 }
+.search-btn:hover { background: #3aa876; }
 
-.search-btn:hover { filter: brightness(1.1); }
-
-/* 分类卡片区 */
+/* 瀑布流布局 */
 .content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* 响应式瀑布流 */
-  gap: 25px;
+  display: columns;
+  column-count: 3; /* 3列瀑布流 */
+  column-gap: 20px;
 }
 
+@media (max-width: 900px) { .content-grid { column-count: 2; } }
+@media (max-width: 600px) { .content-grid { column-count: 1; } }
+
 .category-card {
-  background: var(--glass-bg);
+  break-inside: avoid; /* 防止卡片被拆断 */
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  border: var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
   padding: 20px;
+  margin-bottom: 20px;
   transition: transform 0.3s ease;
 }
 
 .category-card:hover {
   transform: translateY(-5px);
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .cat-title {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin-bottom: 15px;
   display: flex;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
+  margin-top: 0;
 }
 
 /* 链接列表 */
 .links-wrapper {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-direction: column; /* 列表式垂直排列 */
+  gap: 8px;
 }
 
 .link-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.1);
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 10px;
   border-radius: 8px;
   transition: 0.2s;
-  font-size: 0.95rem;
+  background: rgba(255,255,255,0.05);
 }
 
 .link-item:hover {
-  background: var(--accent-color);
-  color: white;
-  box-shadow: 0 4px 12px rgba(66, 184, 131, 0.4);
+  background: rgba(66, 184, 131, 0.2);
+  transform: translateX(5px);
 }
 
 .favicon {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
 }
 
-/* 底部 */
-footer {
-  text-align: center;
-  margin-top: 50px;
-  font-size: 0.8rem;
-  opacity: 0.5;
+.link-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* 动画 */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.link-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: white;
 }
 
-/* 移动端适配 */
-@media (max-width: 600px) {
-  .hero-section h1 { font-size: 1.8rem; }
-  .content-grid { grid-template-columns: 1fr; }
+.link-desc {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
+
+.loading, .empty-state { text-align: center; margin-top: 50px; opacity: 0.7; }
+footer { text-align: center; margin-top: 60px; opacity: 0.4; font-size: 0.8rem; }
 </style>
