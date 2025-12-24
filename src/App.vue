@@ -62,7 +62,7 @@ onMounted(() => {
   width: 100vw;
   height: 100vh;
   z-index: -999; /* 永远在最底层 */
-  background-image: url('https://pixabay.com/zh/images/download/x-10003814_1920.jpg');
+  background-image: url('https://img1.pixhost.to/images/11108/673696894_daisy-10003814_1920.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
